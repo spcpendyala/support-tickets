@@ -179,39 +179,39 @@ export default function IntegrationsTab({ onTicketsImported }) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl p-4 text-sm mb-2" style={{background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", color: "#a5b4fc"}}>
-        <strong style={{color: "#c4b5fd"}}>How it works:</strong> Connect a platform → Import tickets → AI classifies them → Write classifications back automatically.
+    <div className="space-y-4 max-w-4xl mx-auto">
+      <div className="text-sm px-1" style={{color: "rgba(255,255,255,0.4)"}}>
+        Connect a platform → Import tickets → AI classifies them → Write classifications back automatically.
       </div>
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 gap-4">
         {INTEGRATIONS.map(intg => {
           const imp = imported[intg.id] || []
           const cls = classified[intg.id] || []
           const st = status[intg.id] || ""
           return (
-            <div key={intg.id} className={`bg-white rounded-2xl border-2 ${intg.color} shadow-sm p-6 space-y-4`}>
+            <div key={intg.id} className="rounded-2xl p-5 space-y-4" style={{background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)"}}>
               <div className="flex items-center gap-3">
-                <span className="text-3xl">{intg.icon}</span>
+                <span className="text-2xl">{intg.icon}</span>
                 <div>
-                  <h3 className="font-bold text-gray-900">{intg.name}</h3>
-                  <p className="text-xs text-gray-500">{intg.desc}</p>
+                  <h3 className="font-semibold text-white text-sm">{intg.name}</h3>
+                  <p className="text-xs mt-0.5" style={{color: "rgba(255,255,255,0.4)"}}>{intg.desc}</p>
                 </div>
               </div>
               {intg.instructions && (
-                <div className="mb-3 rounded-xl p-3" style={{background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.15)"}}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold" style={{color: "#a5b4fc"}}>How to get credentials</span>
-                    {intg.docsUrl && <a href={intg.docsUrl} target="_blank" rel="noreferrer" className="text-xs hover:underline" style={{color: "#818cf8"}}>Open docs ↗</a>}
-                  </div>
-                  <ol className="space-y-2">
+                <details>
+                  <summary className="cursor-pointer text-xs font-medium select-none" style={{color: "#818cf8"}}>
+                    ▶ How to get credentials
+                    {intg.docsUrl && <a href={intg.docsUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="float-right hover:underline" style={{color: "#6366f1"}}>docs ↗</a>}
+                  </summary>
+                  <ol className="mt-3 space-y-2 pl-1">
                     {intg.instructions.map((step, i) => (
-                      <li key={i} className="flex gap-2 text-xs leading-relaxed" style={{color: "#94a3b8"}}>
-                        <span className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center font-bold mt-0.5" style={{background: "rgba(99,102,241,0.3)", color: "#a5b4fc", fontSize: "10px"}}>{i+1}</span>
-                        <span>{step}</span>
+                      <li key={i} className="flex gap-2 text-xs leading-relaxed" style={{color: "rgba(255,255,255,0.45)"}}>
+                        <span className="shrink-0 font-bold" style={{color: "#6366f1"}}>{i+1}.</span>
+                        {step}
                       </li>
                     ))}
                   </ol>
-                </div>
+                </details>
               )}
               <div className="space-y-2">
                 {intg.fields.map(f => (
@@ -219,8 +219,8 @@ export default function IntegrationsTab({ onTicketsImported }) {
                     placeholder={`${f.label}: ${f.placeholder}`}
                     value={(creds[intg.id] || {})[f.key] || ""}
                     onChange={e => updateCred(intg.id, f.key, e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 outline-none font-mono"
-                    style={{background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.1)", color: "white"}}
+                    className="w-full rounded-lg px-3 py-2 text-sm outline-none font-mono"
+                    style={{background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "white"}}
                   />
                 ))}
               </div>
