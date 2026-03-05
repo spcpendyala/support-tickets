@@ -201,7 +201,7 @@ export default function App() {
   // Loading screen
   if (loading) return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 flex flex-col">
-      <header className="bg-white border-b px-8 py-4 flex items-center gap-3 shadow-sm">
+      <header className="bg-white border-b px-8 py-4 flex items-center gap-3 shadow-sm cursor-pointer" onClick={() => { setTickets([]); setFileName(null) }}>
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setTickets([]); setFileName(null) }}>
           <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-lg">🎫</div>
           <div><h1 className="font-bold text-gray-900">TicketAI</h1><p className="text-xs text-gray-400">{fileName}</p></div>
@@ -262,7 +262,7 @@ export default function App() {
 
       <header className="nav-blur sticky top-0 z-50 px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg" style={{background: "linear-gradient(135deg, #6366f1, #8b5cf6)"}}>🎫</div>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg" style={{background: "linear-gradient(135deg, #6366f1, #8b5cf6)"}}>🤖</div>
           <div>
             <h1 className="font-bold text-white" style={{fontFamily: "'Syne', sans-serif", fontSize: "1.1rem"}}>TicketAI</h1>
             <p className="text-xs" style={{color: "rgba(255,255,255,0.35)"}}>Support Ticket Classifier</p>
