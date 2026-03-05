@@ -198,21 +198,20 @@ export default function IntegrationsTab({ onTicketsImported }) {
                 </div>
               </div>
               {intg.instructions && (
-                <details className="group">
-                  <summary className="cursor-pointer text-xs font-medium text-indigo-400 hover:text-indigo-300 list-none flex items-center gap-1 mb-2">
-                    <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
-                    How to get credentials
-                    {intg.docsUrl && <a href={intg.docsUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="ml-auto text-indigo-500 hover:underline">Open docs ↗</a>}
-                  </summary>
-                  <ol className="mt-2 mb-3 space-y-1.5 pl-1">
+                <div className="mb-3 rounded-xl p-3" style={{background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.15)"}}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold" style={{color: "#a5b4fc"}}>How to get credentials</span>
+                    {intg.docsUrl && <a href={intg.docsUrl} target="_blank" rel="noreferrer" className="text-xs hover:underline" style={{color: "#818cf8"}}>Open docs ↗</a>}
+                  </div>
+                  <ol className="space-y-2">
                     {intg.instructions.map((step, i) => (
-                      <li key={i} className="flex gap-2 text-xs" style={{color: "rgba(255,255,255,0.5)"}}>
-                        <span className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold" style={{background: "rgba(99,102,241,0.3)", color: "#a5b4fc"}}>{i+1}</span>
-                        {step}
+                      <li key={i} className="flex gap-2 text-xs leading-relaxed" style={{color: "#94a3b8"}}>
+                        <span className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center font-bold mt-0.5" style={{background: "rgba(99,102,241,0.3)", color: "#a5b4fc", fontSize: "10px"}}>{i+1}</span>
+                        <span>{step}</span>
                       </li>
                     ))}
                   </ol>
-                </details>
+                </div>
               )}
               <div className="space-y-2">
                 {intg.fields.map(f => (
