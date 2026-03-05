@@ -261,7 +261,7 @@ export default function App() {
       `}</style>
 
       <header className="nav-blur sticky top-0 z-50 px-8 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setTickets([]); setFileName(null); setMainTab("classify") }}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg" style={{background: "linear-gradient(135deg, #6366f1, #8b5cf6)"}}>🤖</div>
           <div>
             <h1 className="font-bold text-white" style={{fontFamily: "'Syne', sans-serif", fontSize: "1.1rem"}}>TicketAI</h1>
