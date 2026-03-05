@@ -10,7 +10,14 @@ const INTEGRATIONS = [
     fields: [
       { key: "token", label: "Personal Access Token", placeholder: "ghp_xxxxxxxxxxxx", type: "password" },
       { key: "repo", label: "Repository", placeholder: "username/repo-name", type: "text" }
-    ]
+    ],
+    instructions: [
+      "Go to GitHub → Settings → Developer Settings → Personal Access Tokens → Fine-grained tokens",
+      "Click Generate new token — set repo access and enable Issues: Read & Write",
+      "Copy the token starting with github_pat_... and paste above",
+      "Enter your repo as: username/repo-name (e.g. acme/support)"
+    ],
+    docsUrl: "https://github.com/settings/tokens"
   },
   {
     id: "freshdesk", name: "Freshdesk", icon: "🎧",
@@ -19,7 +26,14 @@ const INTEGRATIONS = [
     fields: [
       { key: "domain", label: "Subdomain", placeholder: "yourcompany", type: "text" },
       { key: "api_key", label: "API Key", placeholder: "your_freshdesk_api_key", type: "password" }
-    ]
+    ],
+    instructions: [
+      "Log into your Freshdesk account at yourcompany.freshdesk.com",
+      "Click your avatar (top right) → Profile Settings",
+      "Scroll down to find Your API Key — copy it",
+      "Enter just your subdomain (e.g. if URL is acme.freshdesk.com, enter: acme)"
+    ],
+    docsUrl: "https://support.freshdesk.com/en/support/solutions/articles/215517"
   },
   {
     id: "linear", name: "Linear", icon: "📐",
@@ -27,7 +41,14 @@ const INTEGRATIONS = [
     desc: "Pull open issues, update priority fields and add AI classification comments.",
     fields: [
       { key: "api_key", label: "API Key", placeholder: "lin_api_xxxxxxxxxxxx", type: "password" }
-    ]
+    ],
+    instructions: [
+      "Go to Linear → Settings → Security & Access → Personal API Keys",
+      "Click Create key — give it a name like TicketAI",
+      "Copy the key starting with lin_api_... and paste above",
+      "Note: the key is only shown once, so copy it immediately"
+    ],
+    docsUrl: "https://linear.app/settings/api"
   },
   {
     id: "notion", name: "Notion", icon: "📝",
@@ -36,7 +57,14 @@ const INTEGRATIONS = [
     fields: [
       { key: "api_key", label: "Integration Token", placeholder: "secret_xxxxxxxxxxxx", type: "password" },
       { key: "database_id", label: "Database ID", placeholder: "32-char ID from URL", type: "text" }
-    ]
+    ],
+    instructions: [
+      "Go to notion.so/my-integrations → New integration — name it TicketAI",
+      "Copy the Internal Integration Token starting with secret_...",
+      "Open your Notion database → click ••• menu → Connections → connect TicketAI",
+      "Copy the Database ID from the URL: notion.so/YOUR-DATABASE-ID?v=..."
+    ],
+    docsUrl: "https://www.notion.so/my-integrations"
   },
 ]
 
@@ -152,8 +180,8 @@ export default function IntegrationsTab({ onTicketsImported }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 text-sm text-indigo-700">
-        <strong>How it works:</strong> Connect a platform → Import tickets → AI classifies them → Write classifications back automatically.
+      <div className="rounded-2xl p-4 text-sm mb-2" style={{background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", color: "#a5b4fc"}}>
+        <strong style={{color: "#c4b5fd"}}>How it works:</strong> Connect a platform → Import tickets → AI classifies them → Write classifications back automatically.
       </div>
       <div className="grid md:grid-cols-2 gap-6">
         {INTEGRATIONS.map(intg => {
@@ -169,6 +197,23 @@ export default function IntegrationsTab({ onTicketsImported }) {
                   <p className="text-xs text-gray-500">{intg.desc}</p>
                 </div>
               </div>
+              {intg.instructions && (
+                <details className="group">
+                  <summary className="cursor-pointer text-xs font-medium text-indigo-400 hover:text-indigo-300 list-none flex items-center gap-1 mb-2">
+                    <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
+                    How to get credentials
+                    {intg.docsUrl && <a href={intg.docsUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="ml-auto text-indigo-500 hover:underline">Open docs ↗</a>}
+                  </summary>
+                  <ol className="mt-2 mb-3 space-y-1.5 pl-1">
+                    {intg.instructions.map((step, i) => (
+                      <li key={i} className="flex gap-2 text-xs" style={{color: "rgba(255,255,255,0.5)"}}>
+                        <span className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold" style={{background: "rgba(99,102,241,0.3)", color: "#a5b4fc"}}>{i+1}</span>
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              )}
               <div className="space-y-2">
                 {intg.fields.map(f => (
                   <input key={f.key} type={f.type}
@@ -176,6 +221,7 @@ export default function IntegrationsTab({ onTicketsImported }) {
                     value={(creds[intg.id] || {})[f.key] || ""}
                     onChange={e => updateCred(intg.id, f.key, e.target.value)}
                     className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300 outline-none font-mono"
+                    style={{background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.1)", color: "white"}}
                   />
                 ))}
               </div>
