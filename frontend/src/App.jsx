@@ -1,0 +1,459 @@
+import { useState, useCallback } from "react"
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
+import IntegrationsTab from "./Integrations.jsx"
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000"
+
+const CAT_COLORS = {
+  billing: { badge: "bg-purple-100 text-purple-800", chart: "#9333ea" },
+  technical: { badge: "bg-blue-100 text-blue-800", chart: "#3b82f6" },
+  account: { badge: "bg-yellow-100 text-yellow-800", chart: "#eab308" },
+  feature_request: { badge: "bg-green-100 text-green-800", chart: "#22c55e" },
+  bug: { badge: "bg-red-100 text-red-800", chart: "#ef4444" },
+  general: { badge: "bg-gray-100 text-gray-800", chart: "#6b7280" },
+}
+const PRI_COLORS = {
+  critical: { badge: "bg-red-500 text-white", chart: "#ef4444" },
+  high: { badge: "bg-orange-400 text-white", chart: "#f97316" },
+  medium: { badge: "bg-yellow-400 text-gray-900", chart: "#eab308" },
+  low: { badge: "bg-green-400 text-white", chart: "#22c55e" },
+}
+const PRI_ORDER = { critical: 0, high: 1, medium: 2, low: 3 }
+
+const SAMPLE_CSV = `id,subject,body
+1,Can't login to my account,"I've been trying to log in for the past hour. Error every time. I have a presentation in 30 minutes!"
+2,Unexpected billing charge,"I see a charge I don't recognize. Please explain or refund immediately."
+3,Feature request: dark mode,"Many users want dark mode. Please add it to the dashboard."
+4,App crashes on iPhone,"The app crashes every time I open it on my iPhone 15. Reinstalling didn't help."
+5,How to export my data?,"I need to export all data as CSV. Is this possible?"
+6,Possible security breach,"Someone logged into my account from Russia. I did NOT do this. Urgent!"
+7,Performance very slow,"Dashboard takes 30+ seconds to load. This is killing my productivity."
+8,Upgrade subscription plan,"I'd like to upgrade from Basic to Pro. Can you walk me through it?"`
+
+const Badge = ({ label, cls }) => (
+  <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${cls}`}>
+    {label?.replace(/_/g, " ")}
+  </span>
+)
+
+export default function App() {
+  const [tickets, setTickets] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState({ current: 0, total: 0, subject: "" })
+  const [error, setError] = useState(null)
+  const [fileName, setFileName] = useState(null)
+  const [sortField, setSortField] = useState("priority")
+  const [sortDir, setSortDir] = useState("asc")
+  const [catFilter, setCatFilter] = useState("all")
+  const [priFilter, setPriFilter] = useState("all")
+  const [search, setSearch] = useState("")
+  const [selectedTicket, setSelectedTicket] = useState(null)
+  const [selected, setSelected] = useState(new Set())
+  const [bulkPriority, setBulkPriority] = useState("")
+  const [activeTab, setActiveTab] = useState("table")
+  const [mainTab, setMainTab] = useState("classify")
+
+  const classify = async (file) => {
+    setFileName(file.name)
+    setLoading(true)
+    setError(null)
+    setTickets([])
+    setProgress({ current: 0, total: 0, subject: "" })
+    setSelected(new Set())
+    const fd = new FormData()
+    fd.append("file", file)
+    try {
+      const response = await fetch(`${API_BASE}/classify/stream`, { method: "POST", body: fd })
+      if (!response.ok) throw new Error((await response.json()).detail)
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ""
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop()
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue
+          const data = JSON.parse(line.slice(6))
+          if (data.type === "start") setProgress({ current: 0, total: data.total, subject: "" })
+          else if (data.type === "progress") setProgress({ current: data.current, total: data.total, subject: data.subject })
+          else if (data.type === "ticket") setTickets(prev => [...prev, data.ticket])
+          else if (data.type === "done") setLoading(false)
+        }
+      }
+    } catch (e) {
+      setError(e.message)
+      setLoading(false)
+    }
+  }
+
+  const onFile = useCallback((file) => classify(file), [])
+  const useSample = () => {
+    const blob = new Blob([SAMPLE_CSV], { type: "text/csv" })
+    classify(new File([blob], "sample_tickets.csv"))
+  }
+
+  const handleSort = (f) => {
+    if (sortField === f) setSortDir(d => d === "asc" ? "desc" : "asc")
+    else { setSortField(f); setSortDir("asc") }
+  }
+
+  const toggleSelect = (id) => setSelected(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n
+  })
+
+  const applyBulkPriority = () => {
+    if (!bulkPriority) return
+    setTickets(prev => prev.map(t => selected.has(t.id) ? { ...t, priority: bulkPriority } : t))
+    setSelected(new Set())
+    setBulkPriority("")
+  }
+
+  const exportCSV = () => {
+    const h = ["id", "subject", "category", "priority", "sentiment", "confidence", "summary", "tags"]
+    const rows = tickets.map(t => h.map(k => `"${(t[k] ?? "").toString().replace(/"/g, '""')}"`).join(","))
+    const blob = new Blob([[h.join(","), ...rows].join("\n")], { type: "text/csv" })
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = "classified_tickets.csv"
+    a.click()
+  }
+
+  const sorted = [...tickets].sort((a, b) => {
+    let va = a[sortField], vb = b[sortField]
+    if (sortField === "priority") { va = PRI_ORDER[va] ?? 9; vb = PRI_ORDER[vb] ?? 9 }
+    if (typeof va === "string") return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va)
+    return sortDir === "asc" ? va - vb : vb - va
+  })
+
+  const filtered = sorted.filter(t =>
+    (catFilter === "all" || t.category === catFilter) &&
+    (priFilter === "all" || t.priority === priFilter) &&
+    (search === "" || [t.subject, t.summary, ...(t.tags || [])].join(" ").toLowerCase().includes(search.toLowerCase()))
+  )
+
+  const catData = Object.entries(
+    tickets.reduce((a, t) => { a[t.category] = (a[t.category] || 0) + 1; return a }, {})
+  ).map(([name, value]) => ({ name: name.replace(/_/g, " "), value, color: CAT_COLORS[name]?.chart || "#6b7280" }))
+
+  const priData = ["critical", "high", "medium", "low"].map(p => ({
+    name: p, count: tickets.filter(t => t.priority === p).length, color: PRI_COLORS[p]?.chart
+  }))
+
+  const SortTh = ({ f, label }) => (
+    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-indigo-600 select-none whitespace-nowrap" onClick={() => handleSort(f)}>
+      {label} {sortField === f ? (sortDir === "asc" ? "↑" : "↓") : <span className="text-gray-300">↕</span>}
+    </th>
+  )
+
+  const NavTabs = ({ current, onChange }) => (
+    <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+      <button onClick={() => onChange("classify")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${current === "classify" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+        📋 Classify CSV
+      </button>
+      <button onClick={() => onChange("integrations")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${current === "integrations" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+        🔌 Integrations
+      </button>
+    </div>
+  )
+
+  // Loading screen
+  if (loading) return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 flex flex-col">
+      <header className="bg-white border-b px-8 py-4 flex items-center gap-3 shadow-sm">
+        <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-lg">🎫</div>
+        <div><h1 className="font-bold text-gray-900">TicketAI</h1><p className="text-xs text-gray-400">{fileName}</p></div>
+      </header>
+      <main className="flex-1 flex items-center justify-center p-8">
+        <div className="max-w-lg w-full space-y-6 text-center">
+          <div className="text-5xl animate-bounce">🤖</div>
+          <h2 className="text-2xl font-bold text-gray-900">Classifying tickets...</h2>
+          <p className="text-gray-500 text-sm">Processing ticket {progress.current} of {progress.total}</p>
+          {progress.subject && <p className="text-indigo-600 font-medium text-sm truncate">"{progress.subject}"</p>}
+          <div className="bg-gray-200 rounded-full h-3 overflow-hidden">
+            <div className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+              style={{ width: `${progress.total ? (progress.current / progress.total) * 100 : 0}%` }} />
+          </div>
+          <p className="text-xs text-gray-400">{progress.total ? Math.round((progress.current / progress.total) * 100) : 0}% complete</p>
+          {tickets.length > 0 && (
+            <div className="text-left space-y-2 max-h-64 overflow-y-auto">
+              {tickets.map(t => (
+                <div key={t.id} className="bg-white rounded-xl border border-gray-100 p-3 flex items-center gap-3 shadow-sm">
+                  <Badge label={t.priority} cls={PRI_COLORS[t.priority]?.badge || "bg-gray-200 text-gray-800"} />
+                  <span className="text-sm font-medium text-gray-700 truncate">{t.subject}</span>
+                  <Badge label={t.category} cls={CAT_COLORS[t.category]?.badge || "bg-gray-100 text-gray-800"} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  )
+
+  // Landing page
+  if (tickets.length === 0) return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 flex flex-col">
+      <header className="bg-white border-b px-8 py-4 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-lg">🎫</div>
+          <div><h1 className="font-bold text-gray-900">TicketAI</h1><p className="text-xs text-gray-400">Support Ticket Auto-Classifier</p></div>
+        </div>
+        <NavTabs current={mainTab} onChange={setMainTab} />
+      </header>
+      <main className="flex-1 p-8 max-w-5xl mx-auto w-full">
+        {mainTab === "integrations" ? (
+          <div className="pt-4">
+            <IntegrationsTab onTicketsImported={(t) => { setTickets(t); setFileName("Integration import") }} />
+          </div>
+        ) : (
+          <div className="space-y-12 pt-8">
+            <div>
+              <h2 className="text-4xl font-bold text-center text-gray-900 mb-2">Classify Support Tickets Instantly</h2>
+              <p className="text-gray-500 text-center mb-8 text-lg">Upload a CSV — AI categorises, prioritises, and analyses every ticket in seconds.</p>
+              <label className="block border-2 border-dashed border-gray-200 rounded-2xl p-12 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 transition-all"
+                onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); onFile(e.dataTransfer.files[0]) }}>
+                <input type="file" accept=".csv" className="hidden" onChange={e => e.target.files[0] && onFile(e.target.files[0])} />
+                <div className="text-5xl mb-4">📋</div>
+                <p className="font-semibold text-gray-700 text-lg">Drop CSV or click to upload</p>
+                <p className="text-sm text-gray-400 mt-1">Supports: <code className="bg-gray-100 px-1 rounded">id, subject, body</code> — also auto-detects Kaggle exports</p>
+              </label>
+              {error && <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-sm">{error}</div>}
+              <div className="mt-4 text-center">
+                <button onClick={useSample} className="text-indigo-600 text-sm underline hover:text-indigo-800">Try with sample data →</button>
+              </div>
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">Why teams use TicketAI</h3>
+              <p className="text-gray-500 text-center mb-8">Real impact across industries</p>
+              <div className="grid md:grid-cols-3 gap-6">
+                {[
+                  { icon: "🚀", title: "SaaS Company", metric: "73% faster first response", desc: "Automatically routes critical outage tickets to on-call engineers instantly.", tags: ["bug", "critical", "technical"] },
+                  { icon: "🛒", title: "E-Commerce Platform", metric: "41% reduction in churn", desc: "Billing errors get flagged as high priority and routed to finance — stopping churn before it happens.", tags: ["billing", "high", "negative"] },
+                  { icon: "🏢", title: "IT Helpdesk", metric: "500 tickets in 2 minutes", desc: "What used to take 4 hours of manual triage now runs automatically on every ticket batch.", tags: ["account", "technical", "general"] },
+                ].map(c => (
+                  <div key={c.title} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-3">
+                    <div className="text-3xl">{c.icon}</div>
+                    <div><p className="text-xs text-gray-400 uppercase font-medium">{c.title}</p><p className="text-xl font-bold text-indigo-600">{c.metric}</p></div>
+                    <p className="text-gray-600 text-sm">{c.desc}</p>
+                    <div className="flex flex-wrap gap-1">{c.tags.map(t => <span key={t} className="bg-indigo-50 text-indigo-700 text-xs px-2 py-0.5 rounded-full">{t}</span>)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">How it works</h3>
+              <p className="text-gray-500 text-center mb-8">Three steps, zero setup</p>
+              <div className="grid md:grid-cols-3 gap-6">
+                {[
+                  { step: "1", icon: "📤", title: "Upload your CSV", desc: "Drop in any CSV with ticket subjects and bodies. Supports Kaggle, Freshdesk, GitHub, Linear, Notion — auto-detected." },
+                  { step: "2", icon: "🤖", title: "AI classifies each ticket", desc: "Every ticket gets a category, priority, sentiment score, confidence rating, and a one-sentence summary." },
+                  { step: "3", icon: "📊", title: "Filter, analyse, export", desc: "Sort by priority, filter by category, drill into any ticket, run analytics, export CSV or write back to your tool." },
+                ].map(s => (
+                  <div key={s.step} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex gap-4">
+                    <div className="w-8 h-8 bg-indigo-600 text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">{s.step}</div>
+                    <div><p className="font-semibold text-gray-900 mb-1">{s.icon} {s.title}</p><p className="text-gray-500 text-sm">{s.desc}</p></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  )
+
+  // Results view
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {selectedTicket && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setSelectedTicket(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <h3 className="font-bold text-gray-900 text-lg">{selectedTicket.subject}</h3>
+              <button onClick={() => setSelectedTicket(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge label={selectedTicket.category} cls={CAT_COLORS[selectedTicket.category]?.badge || "bg-gray-100 text-gray-800"} />
+              <Badge label={selectedTicket.priority} cls={PRI_COLORS[selectedTicket.priority]?.badge || "bg-gray-200 text-gray-800"} />
+              <span className="text-sm text-gray-500">{selectedTicket.sentiment === "positive" ? "😊" : selectedTicket.sentiment === "negative" ? "😠" : "😐"} {selectedTicket.sentiment}</span>
+            </div>
+            <p className="text-sm text-gray-600 italic">"{selectedTicket.summary}"</p>
+            <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 max-h-40 overflow-y-auto">{selectedTicket.body}</div>
+            <div className="flex flex-wrap gap-1">
+              {(selectedTicket.tags || []).map(tag => <span key={tag} className="bg-indigo-50 text-indigo-700 text-xs px-2 py-0.5 rounded-full">{tag}</span>)}
+            </div>
+            {selectedTicket.source_url && <a href={selectedTicket.source_url} target="_blank" rel="noreferrer" className="text-indigo-600 text-sm hover:underline">View original ↗</a>}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">Confidence:</span>
+              <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(selectedTicket.confidence || 0) * 100}%` }} />
+              </div>
+              <span className="text-xs text-gray-500">{Math.round((selectedTicket.confidence || 0) * 100)}%</span>
+            </div>
+          </div>
+        </div>
+      )}
+      <header className="bg-white border-b px-8 py-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-lg">🎫</div>
+          <div><h1 className="font-bold text-gray-900">TicketAI</h1><p className="text-xs text-gray-400">{fileName}</p></div>
+        </div>
+        <div className="flex gap-3 items-center">
+          <button onClick={() => { setTickets([]); setFileName(null) }} className="text-sm text-gray-500 hover:text-gray-800">← New Upload</button>
+          <button onClick={exportCSV} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors">⬇ Export CSV</button>
+        </div>
+      </header>
+      <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: "Total Tickets", value: tickets.length, color: "text-gray-900" },
+            { label: "Critical", value: tickets.filter(t => t.priority === "critical").length, color: "text-red-600" },
+            { label: "High Priority", value: tickets.filter(t => t.priority === "high").length, color: "text-orange-500" },
+            { label: "Categories", value: [...new Set(tickets.map(t => t.category))].length, color: "text-indigo-600" },
+          ].map(s => (
+            <div key={s.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <p className="text-xs text-gray-500 uppercase font-medium">{s.label}</p>
+              <p className={`text-3xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+          {["table", "analytics"].map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${activeTab === tab ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+              {tab === "table" ? "📋 Tickets" : "📊 Analytics"}
+            </button>
+          ))}
+        </div>
+        {activeTab === "analytics" ? (
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-white rounded-2xl border shadow-sm p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Category Breakdown</h3>
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                    {catData.map((e, i) => <Cell key={i} fill={e.color} />)}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="bg-white rounded-2xl border shadow-sm p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Priority Distribution</h3>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={priData}>
+                  <XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>{priData.map((e, i) => <Cell key={i} fill={e.color} />)}</Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="bg-white rounded-2xl border shadow-sm p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Sentiment Split</h3>
+              <div className="space-y-3">
+                {["positive", "neutral", "negative"].map(s => {
+                  const count = tickets.filter(t => t.sentiment === s).length
+                  const pct = tickets.length ? Math.round((count / tickets.length) * 100) : 0
+                  return (
+                    <div key={s} className="flex items-center gap-3">
+                      <span className="text-lg">{s === "positive" ? "😊" : s === "negative" ? "😠" : "😐"}</span>
+                      <span className="text-sm text-gray-600 w-16 capitalize">{s}</span>
+                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${s === "positive" ? "bg-green-400" : s === "negative" ? "bg-red-400" : "bg-yellow-400"}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-sm text-gray-500 w-16 text-right">{count} ({pct}%)</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border shadow-sm p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Top Tags</h3>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(
+                  tickets.flatMap(t => t.tags || []).reduce((a, tag) => { a[tag] = (a[tag] || 0) + 1; return a }, {})
+                ).sort((a, b) => b[1] - a[1]).slice(0, 20).map(([tag, count]) => (
+                  <span key={tag} className="bg-indigo-50 text-indigo-700 text-xs px-2 py-1 rounded-full">{tag} <span className="font-bold">x{count}</span></span>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="bg-white rounded-2xl border p-4 flex flex-wrap gap-4 items-center shadow-sm">
+              <input type="text" placeholder="Search subject, summary, tags..." value={search} onChange={e => setSearch(e.target.value)}
+                className="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-300 outline-none w-64" />
+              <select value={catFilter} onChange={e => setCatFilter(e.target.value)} className="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-300 outline-none">
+                <option value="all">All Categories</option>
+                {[...new Set(tickets.map(t => t.category))].map(c => <option key={c} value={c}>{c.replace(/_/g, " ")}</option>)}
+              </select>
+              <select value={priFilter} onChange={e => setPriFilter(e.target.value)} className="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-300 outline-none">
+                <option value="all">All Priorities</option>
+                {["critical", "high", "medium", "low"].map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+              {selected.size > 0 ? (
+                <div className="flex items-center gap-2 ml-auto">
+                  <span className="text-sm text-gray-500">{selected.size} selected</span>
+                  <select value={bulkPriority} onChange={e => setBulkPriority(e.target.value)} className="border rounded-lg px-3 py-1.5 text-sm outline-none">
+                    <option value="">Set priority...</option>
+                    {["critical", "high", "medium", "low"].map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  <button onClick={applyBulkPriority} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">Apply</button>
+                  <button onClick={() => setSelected(new Set())} className="text-gray-400 hover:text-gray-600 text-sm">Clear</button>
+                </div>
+              ) : (
+                <span className="ml-auto text-sm text-gray-400">Showing {filtered.length} of {tickets.length}</span>
+              )}
+            </div>
+            <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
+              <table className="min-w-full divide-y divide-gray-100">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3">
+                      <input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0}
+                        onChange={e => setSelected(e.target.checked ? new Set(filtered.map(t => t.id)) : new Set())} className="rounded" />
+                    </th>
+                    <SortTh f="id" label="ID" />
+                    <SortTh f="subject" label="Subject" />
+                    <SortTh f="category" label="Category" />
+                    <SortTh f="priority" label="Priority" />
+                    <SortTh f="sentiment" label="Sentiment" />
+                    <SortTh f="confidence" label="Confidence" />
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Summary</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-50">
+                  {filtered.map(t => (
+                    <tr key={t.id} className={`hover:bg-indigo-50/30 transition-colors cursor-pointer ${selected.has(t.id) ? "bg-indigo-50" : ""}`}
+                      onClick={() => setSelectedTicket(t)}>
+                      <td className="px-4 py-3" onClick={e => { e.stopPropagation(); toggleSelect(t.id) }}>
+                        <input type="checkbox" checked={selected.has(t.id)} onChange={() => {}} className="rounded" />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-400 font-mono">{t.id}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800 max-w-xs truncate">{t.subject}</td>
+                      <td className="px-4 py-3"><Badge label={t.category} cls={CAT_COLORS[t.category]?.badge || "bg-gray-100 text-gray-800"} /></td>
+                      <td className="px-4 py-3"><Badge label={t.priority} cls={PRI_COLORS[t.priority]?.badge || "bg-gray-200 text-gray-800"} /></td>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap">{t.sentiment === "positive" ? "😊" : t.sentiment === "negative" ? "😠" : "😐"} {t.sentiment}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(t.confidence || 0) * 100}%` }} />
+                          </div>
+                          <span className="text-xs text-gray-500">{Math.round((t.confidence || 0) * 100)}%</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 max-w-sm truncate">{t.summary}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </main>
+    </div>
+  )
+}
