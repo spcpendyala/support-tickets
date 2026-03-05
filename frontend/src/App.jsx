@@ -163,8 +163,10 @@ export default function App() {
   if (loading) return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 flex flex-col">
       <header className="bg-white border-b px-8 py-4 flex items-center gap-3 shadow-sm">
-        <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-lg">🎫</div>
-        <div><h1 className="font-bold text-gray-900">TicketAI</h1><p className="text-xs text-gray-400">{fileName}</p></div>
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setTickets([]); setFileName(null) }}>
+          <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-lg">🎫</div>
+          <div><h1 className="font-bold text-gray-900">TicketAI</h1><p className="text-xs text-gray-400">{fileName}</p></div>
+        </div>
       </header>
       <main className="flex-1 flex items-center justify-center p-8">
         <div className="max-w-lg w-full space-y-6 text-center">
