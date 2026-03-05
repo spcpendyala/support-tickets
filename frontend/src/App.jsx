@@ -36,6 +36,45 @@ const Badge = ({ label, cls }) => (
   </span>
 )
 
+
+function WarmupBanner() {
+  const [status, setStatus] = useState("checking")
+  const [ms, setMs] = useState(null)
+  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000"
+
+  useEffect(() => {
+    const start = Date.now()
+    fetch(`${API_BASE}/health`).then(r => {
+      if (r.ok) {
+        const elapsed = Date.now() - start
+        setMs(elapsed)
+        setStatus(elapsed > 3000 ? "slow" : "ready")
+      }
+    }).catch(() => setStatus("warming"))
+    // retry after 5s if still warming
+    const t = setTimeout(() => {
+      if (status === "checking") setStatus("warming")
+    }, 5000)
+    return () => clearTimeout(t)
+  }, [])
+
+  if (status === "ready" && ms < 3000) return null
+
+  const configs = {
+    checking: { bg: "rgba(99,102,241,0.08)", border: "rgba(99,102,241,0.2)", color: "#a5b4fc", icon: "⚡", msg: "Checking backend status..." },
+    warming:  { bg: "rgba(234,179,8,0.08)",  border: "rgba(234,179,8,0.25)",  color: "#fcd34d", icon: "🔥", msg: "Backend is warming up — first classification may take 30–60 seconds. This is normal for a free-tier server." },
+    slow:     { bg: "rgba(234,179,8,0.08)",  border: "rgba(234,179,8,0.25)",  color: "#fcd34d", icon: "⚡", msg: `Backend responded in ${ms}ms — running smoothly now.` },
+    ready:    { bg: "rgba(34,197,94,0.08)",  border: "rgba(34,197,94,0.25)",  color: "#86efac", icon: "✅", msg: "Backend is live and ready." },
+  }
+  const c = configs[status]
+  return (
+    <div className="max-w-xl mx-auto mb-4 rounded-xl px-4 py-3 text-sm flex items-start gap-2" style={{background: c.bg, border: `1px solid ${c.border}`, color: c.color}}>
+      <span className="shrink-0">{c.icon}</span>
+      <span>{c.msg}</span>
+    </div>
+  )
+}
+
 export default function App() {
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(false)
@@ -269,6 +308,7 @@ export default function App() {
                 <p className="mb-10 text-lg" style={{color: "rgba(255,255,255,0.5)", maxWidth: "550px", margin: "0 auto 2.5rem"}}>
                   Upload a CSV or connect GitHub, Freshdesk, Linear, or Notion — AI classifies, prioritises, and writes back automatically.
                 </p>
+                <WarmupBanner />
                 <label className="upload-zone block rounded-2xl p-10 cursor-pointer max-w-xl mx-auto mb-4"
                   onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); onFile(e.dataTransfer.files[0]) }}>
                   <input type="file" accept=".csv" className="hidden" onChange={e => e.target.files[0] && onFile(e.target.files[0])} />
@@ -412,7 +452,7 @@ export default function App() {
         </div>
       )}
       <header className="bg-white border-b px-8 py-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setTickets([]); setFileName(null) }}>
           <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-lg">🎫</div>
           <div><h1 className="font-bold text-gray-900">TicketAI</h1><p className="text-xs text-gray-400">{fileName}</p></div>
         </div>
