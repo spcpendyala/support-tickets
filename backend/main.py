@@ -103,7 +103,7 @@ async def classify_ticket(ticket_id: str, subject: str, body: str, retries: int 
                 id=ticket_id, subject=subject, body=body,
                 category="general", priority="medium", sentiment="neutral",
                 confidence=0.0,
-                summary=f"{'Rate limit — retrying' if is_rate_limit else f'Error: {e}'}",
+                summary=f"{'Classification pending — please retry' if is_rate_limit else f'Error: {e}'}",
                 tags=[],
             )
 

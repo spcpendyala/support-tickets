@@ -195,71 +195,184 @@ export default function App() {
 
   // Landing page
   if (tickets.length === 0) return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 flex flex-col">
-      <header className="bg-white border-b px-8 py-4 flex items-center justify-between shadow-sm">
+    <div className="min-h-screen flex flex-col" style={{fontFamily: "'DM Sans', sans-serif", background: "#0a0a0f"}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap');
+        .hero-glow { background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99,102,241,0.35) 0%, transparent 70%); }
+        .upload-zone { background: rgba(255,255,255,0.03); border: 1.5px dashed rgba(99,102,241,0.4); transition: all 0.3s; }
+        .upload-zone:hover { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.8); transform: translateY(-2px); }
+        .stat-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px); }
+        .integration-pill { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s; }
+        .integration-pill:hover { background: rgba(255,255,255,0.1); border-color: rgba(99,102,241,0.5); }
+        .tag-badge { background: rgba(99,102,241,0.15); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.25); }
+        .metric-text { background: linear-gradient(135deg, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .nav-blur { background: rgba(10,10,15,0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .try-btn { background: linear-gradient(135deg, #6366f1, #8b5cf6); transition: all 0.2s; }
+        .try-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(99,102,241,0.4); }
+        .tab-active { background: rgba(99,102,241,0.2); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.3); }
+        .tab-inactive { color: rgba(255,255,255,0.4); border: 1px solid transparent; }
+        .tab-inactive:hover { color: rgba(255,255,255,0.7); }
+        .priority-dot-critical { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.6); }
+        .priority-dot-high { background: #f97316; box-shadow: 0 0 8px rgba(249,115,22,0.6); }
+        .priority-dot-medium { background: #eab308; box-shadow: 0 0 8px rgba(234,179,8,0.6); }
+        .demo-row { border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .demo-row:last-child { border-bottom: none; }
+      `}</style>
+
+      <header className="nav-blur sticky top-0 z-50 px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white text-lg">🎫</div>
-          <div><h1 className="font-bold text-gray-900">TicketAI</h1><p className="text-xs text-gray-400">Support Ticket Auto-Classifier</p></div>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg" style={{background: "linear-gradient(135deg, #6366f1, #8b5cf6)"}}>🎫</div>
+          <div>
+            <h1 className="font-bold text-white" style={{fontFamily: "'Syne', sans-serif", fontSize: "1.1rem"}}>TicketAI</h1>
+            <p className="text-xs" style={{color: "rgba(255,255,255,0.35)"}}>Support Ticket Classifier</p>
+          </div>
         </div>
-        <NavTabs current={mainTab} onChange={setMainTab} />
+        <div className="flex gap-1 p-1 rounded-xl" style={{background: "rgba(255,255,255,0.05)"}}>
+          {["classify", "integrations"].map(t => (
+            <button key={t} onClick={() => setMainTab(t)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${mainTab === t ? "tab-active" : "tab-inactive"}`}>
+              {t === "classify" ? "📋 Classify" : "🔌 Integrations"}
+            </button>
+          ))}
+        </div>
       </header>
-      <main className="flex-1 p-8 max-w-5xl mx-auto w-full">
+
+      <main className="flex-1">
         {mainTab === "integrations" ? (
-          <div className="pt-4">
+          <div className="max-w-5xl mx-auto p-8 pt-6">
             <IntegrationsTab onTicketsImported={(t) => { setTickets(t); setFileName("Integration import") }} />
           </div>
         ) : (
-          <div className="space-y-12 pt-8">
-            <div>
-              <h2 className="text-4xl font-bold text-center text-gray-900 mb-2">Classify Support Tickets Instantly</h2>
-              <p className="text-gray-500 text-center mb-8 text-lg">Upload a CSV — AI categorises, prioritises, and analyses every ticket in seconds.</p>
-              <label className="block border-2 border-dashed border-gray-200 rounded-2xl p-12 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 transition-all"
-                onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); onFile(e.dataTransfer.files[0]) }}>
-                <input type="file" accept=".csv" className="hidden" onChange={e => e.target.files[0] && onFile(e.target.files[0])} />
-                <div className="text-5xl mb-4">📋</div>
-                <p className="font-semibold text-gray-700 text-lg">Drop CSV or click to upload</p>
-                <p className="text-sm text-gray-400 mt-1">Supports: <code className="bg-gray-100 px-1 rounded">id, subject, body</code> — also auto-detects Kaggle exports</p>
-              </label>
-              {error && <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-sm">{error}</div>}
-              <div className="mt-4 text-center">
-                <button onClick={useSample} className="text-indigo-600 text-sm underline hover:text-indigo-800">Try with sample data →</button>
+          <>
+            <section className="hero-glow relative pt-20 pb-16 px-8 text-center overflow-hidden">
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="absolute rounded-full" style={{
+                    width: `${300 + i * 150}px`, height: `${300 + i * 150}px`,
+                    left: `${20 + i * 25}%`, top: `${-100 + i * 20}px`,
+                    background: `radial-gradient(circle, rgba(99,102,241,${0.06 - i * 0.015}) 0%, transparent 70%)`,
+                    transform: "translate(-50%, 0)"
+                  }} />
+                ))}
               </div>
-            </div>
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">Why teams use TicketAI</h3>
-              <p className="text-gray-500 text-center mb-8">Real impact across industries</p>
-              <div className="grid md:grid-cols-3 gap-6">
+              <div className="relative max-w-3xl mx-auto">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-6" style={{background: "rgba(99,102,241,0.15)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)"}}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block"></span>
+                  AI-powered · Instant classification · 4 integrations
+                </div>
+                <h2 className="text-white font-bold mb-4 leading-tight" style={{fontFamily: "'Syne', sans-serif", fontSize: "clamp(2.2rem, 5vw, 3.5rem)"}}>
+                  Triage support tickets<br/>
+                  <span className="metric-text">in seconds, not hours</span>
+                </h2>
+                <p className="mb-10 text-lg" style={{color: "rgba(255,255,255,0.5)", maxWidth: "550px", margin: "0 auto 2.5rem"}}>
+                  Upload a CSV or connect GitHub, Freshdesk, Linear, or Notion — AI classifies, prioritises, and writes back automatically.
+                </p>
+                <label className="upload-zone block rounded-2xl p-10 cursor-pointer max-w-xl mx-auto mb-4"
+                  onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); onFile(e.dataTransfer.files[0]) }}>
+                  <input type="file" accept=".csv" className="hidden" onChange={e => e.target.files[0] && onFile(e.target.files[0])} />
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4" style={{background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)"}}>📋</div>
+                  <p className="font-semibold text-white text-lg mb-1">Drop your CSV here</p>
+                  <p className="text-sm" style={{color: "rgba(255,255,255,0.35)"}}>
+                    Supports <code style={{background: "rgba(255,255,255,0.08)", padding: "0.1rem 0.4rem", borderRadius: "4px", color: "#a5b4fc"}}>id, subject, body</code> — auto-detects Kaggle exports
+                  </p>
+                </label>
+                {error && <div className="mt-3 max-w-xl mx-auto rounded-xl p-3 text-sm" style={{background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5"}}>{error}</div>}
+                <div className="mt-4">
+                  <button onClick={useSample} className="try-btn text-white text-sm font-semibold px-6 py-2.5 rounded-xl">
+                    Try with sample data →
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className="py-10 px-8 border-y" style={{borderColor: "rgba(255,255,255,0.06)"}}>
+              <p className="text-center text-xs font-semibold uppercase tracking-widest mb-6" style={{color: "rgba(255,255,255,0.25)"}}>Connects directly with</p>
+              <div className="flex flex-wrap justify-center gap-3 max-w-2xl mx-auto">
                 {[
-                  { icon: "🚀", title: "SaaS Company", metric: "73% faster first response", desc: "Automatically routes critical outage tickets to on-call engineers instantly.", tags: ["bug", "critical", "technical"] },
-                  { icon: "🛒", title: "E-Commerce Platform", metric: "41% reduction in churn", desc: "Billing errors get flagged as high priority and routed to finance — stopping churn before it happens.", tags: ["billing", "high", "negative"] },
-                  { icon: "🏢", title: "IT Helpdesk", metric: "500 tickets in 2 minutes", desc: "What used to take 4 hours of manual triage now runs automatically on every ticket batch.", tags: ["account", "technical", "general"] },
-                ].map(c => (
-                  <div key={c.title} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-3">
-                    <div className="text-3xl">{c.icon}</div>
-                    <div><p className="text-xs text-gray-400 uppercase font-medium">{c.title}</p><p className="text-xl font-bold text-indigo-600">{c.metric}</p></div>
-                    <p className="text-gray-600 text-sm">{c.desc}</p>
-                    <div className="flex flex-wrap gap-1">{c.tags.map(t => <span key={t} className="bg-indigo-50 text-indigo-700 text-xs px-2 py-0.5 rounded-full">{t}</span>)}</div>
+                  {name: "GitHub Issues", icon: "🐙"},
+                  {name: "Freshdesk", icon: "🎧"},
+                  {name: "Linear", icon: "📐"},
+                  {name: "Notion", icon: "📝"},
+                  {name: "CSV Upload", icon: "📊"},
+                  {name: "Kaggle Export", icon: "🔬"},
+                ].map(p => (
+                  <div key={p.name} className="integration-pill flex items-center gap-2 px-4 py-2 rounded-full">
+                    <span>{p.icon}</span>
+                    <span className="text-sm font-medium" style={{color: "rgba(255,255,255,0.7)"}}>{p.name}</span>
                   </div>
                 ))}
               </div>
-            </div>
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">How it works</h3>
-              <p className="text-gray-500 text-center mb-8">Three steps, zero setup</p>
-              <div className="grid md:grid-cols-3 gap-6">
+            </section>
+
+            <section className="py-16 px-8 max-w-5xl mx-auto">
+              <div className="text-center mb-10">
+                <h3 className="text-white font-bold text-2xl mb-2" style={{fontFamily: "'Syne', sans-serif"}}>See what TicketAI produces</h3>
+                <p style={{color: "rgba(255,255,255,0.4)"}}>Every ticket gets classified, scored, and summarised instantly</p>
+              </div>
+              <div className="rounded-2xl overflow-hidden" style={{background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)"}}>
+                <div className="px-5 py-3 flex items-center gap-2" style={{background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)"}}>
+                  <div className="w-3 h-3 rounded-full bg-red-500 opacity-60"></div>
+                  <div className="w-3 h-3 rounded-full bg-yellow-500 opacity-60"></div>
+                  <div className="w-3 h-3 rounded-full bg-green-500 opacity-60"></div>
+                  <span className="ml-3 text-xs" style={{color: "rgba(255,255,255,0.3)"}}>classified_tickets.csv — 8 tickets</span>
+                </div>
+                <div className="p-4">
+                  <div className="grid grid-cols-5 gap-4 px-2 py-2 text-xs font-semibold uppercase tracking-wider mb-1" style={{color: "rgba(255,255,255,0.25)"}}>
+                    <span>Subject</span><span>Category</span><span>Priority</span><span>Sentiment</span><span>Summary</span>
+                  </div>
+                  {[
+                    {s: "Can't login to my account", cat: "account", pri: "critical", sent: "negative", sum: "User locked out for 2 days, urgent presentation impact"},
+                    {s: "Unexpected billing charge", cat: "billing", pri: "high", sent: "negative", sum: "Unrecognised charge, requesting immediate refund"},
+                    {s: "Feature request: dark mode", cat: "feature_request", pri: "low", sent: "positive", sum: "User requesting dark mode dashboard option"},
+                    {s: "App crashes on iPhone", cat: "bug", pri: "high", sent: "negative", sum: "Crash on launch after latest update, iPhone 15"},
+                  ].map((row, i) => (
+                    <div key={i} className="demo-row grid grid-cols-5 gap-4 px-2 py-3 items-center">
+                      <span className="text-sm truncate" style={{color: "rgba(255,255,255,0.75)"}}>{row.s}</span>
+                      <span className="tag-badge text-xs px-2 py-0.5 rounded-full w-fit">{row.cat.replace("_", " ")}</span>
+                      <span className="flex items-center gap-1.5 text-sm" style={{color: "rgba(255,255,255,0.6)"}}>
+                        <span className={`w-2 h-2 rounded-full priority-dot-${row.pri}`}></span>{row.pri}
+                      </span>
+                      <span className="text-sm" style={{color: "rgba(255,255,255,0.45)"}}>{row.sent === "negative" ? "😠" : row.sent === "positive" ? "😊" : "😐"} {row.sent}</span>
+                      <span className="text-xs truncate" style={{color: "rgba(255,255,255,0.35)"}}>{row.sum}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="py-12 px-8 max-w-4xl mx-auto">
+              <div className="grid grid-cols-3 gap-6">
                 {[
-                  { step: "1", icon: "📤", title: "Upload your CSV", desc: "Drop in any CSV with ticket subjects and bodies. Supports Kaggle, Freshdesk, GitHub, Linear, Notion — auto-detected." },
-                  { step: "2", icon: "🤖", title: "AI classifies each ticket", desc: "Every ticket gets a category, priority, sentiment score, confidence rating, and a one-sentence summary." },
-                  { step: "3", icon: "📊", title: "Filter, analyse, export", desc: "Sort by priority, filter by category, drill into any ticket, run analytics, export CSV or write back to your tool." },
+                  {metric: "73%", label: "Faster first response", sub: "SaaS teams routing critical bugs instantly"},
+                  {metric: "500", label: "Tickets in 2 minutes", sub: "vs 4 hours of manual triage"},
+                  {metric: "41%", label: "Reduction in churn", sub: "Billing issues caught before escalation"},
                 ].map(s => (
-                  <div key={s.step} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex gap-4">
-                    <div className="w-8 h-8 bg-indigo-600 text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">{s.step}</div>
-                    <div><p className="font-semibold text-gray-900 mb-1">{s.icon} {s.title}</p><p className="text-gray-500 text-sm">{s.desc}</p></div>
+                  <div key={s.metric} className="stat-card rounded-2xl p-6 text-center">
+                    <p className="metric-text font-bold mb-1" style={{fontFamily: "'Syne', sans-serif", fontSize: "2.5rem"}}>{s.metric}</p>
+                    <p className="font-semibold text-white text-sm mb-1">{s.label}</p>
+                    <p className="text-xs" style={{color: "rgba(255,255,255,0.35)"}}>{s.sub}</p>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
+            </section>
+
+            <section className="py-12 px-8 max-w-4xl mx-auto pb-20">
+              <h3 className="text-white font-bold text-2xl text-center mb-10" style={{fontFamily: "'Syne', sans-serif"}}>Three steps, zero setup</h3>
+              <div className="grid md:grid-cols-3 gap-6">
+                {[
+                  {step: "01", title: "Upload or Connect", desc: "Drop a CSV or connect GitHub, Freshdesk, Linear, or Notion. Auto-detects column formats including Kaggle exports."},
+                  {step: "02", title: "AI Classifies", desc: "Every ticket gets a category, priority, sentiment score, confidence rating, and a one-sentence summary."},
+                  {step: "03", title: "Review & Write Back", desc: "Sort, filter, export CSV — or write classifications directly back to your tools with labels and AI comments."},
+                ].map(s => (
+                  <div key={s.step} className="stat-card rounded-2xl p-6">
+                    <p className="font-bold mb-3" style={{fontFamily: "'Syne', sans-serif", fontSize: "1.75rem", background: "linear-gradient(135deg, rgba(99,102,241,0.6), rgba(139,92,246,0.6))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent"}}>{s.step}</p>
+                    <p className="font-semibold text-white mb-2">{s.title}</p>
+                    <p className="text-sm" style={{color: "rgba(255,255,255,0.4)", lineHeight: "1.6"}}>{s.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </>
         )}
       </main>
     </div>
